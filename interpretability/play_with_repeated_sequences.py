@@ -138,6 +138,7 @@ else:
 
 
 with torch.no_grad():
+    
     ## Generate in-distriution tasks
 
     pl_Ws = generate_all_unique_sublists(args, n_tasks=args.n_tasks_pl)
@@ -151,7 +152,6 @@ with torch.no_grad():
         
     grid_set_pre, tokenizer_pre = prepare_data_grid(args, pre_Ws)
 
-    """Make copies of data"""
     task_rows_pre = args.n_tasks
     grid_set_pre = grid_set_pre.view(task_rows_pre, len(grid_set_pre) // task_rows_pre, -1)
 
@@ -164,14 +164,8 @@ with torch.no_grad():
 
     grid_set_ood, tokenizer_ood = prepare_data_grid(args, ood_Ws)
 
-    """Make copies of data"""
     task_rows_ood = args.n_ood_tasks
     grid_set_ood = grid_set_ood.view(task_rows_ood, len(grid_set_ood) // task_rows_ood, -1)
-
-
-    # Ws = list(itertools.product(range(1, args.p), repeat=args.n_var))
-    # args.n_tasks = len(Ws)
-    # print('All Ws: \n', Ws, args.n_tasks)
 
 
     ## set some args
@@ -183,20 +177,8 @@ with torch.no_grad():
         
     ## Load model
 
-    if args.n_tasks_rd == 0:
-        ckpt_path = f'../ckpts/heal/heal_set{args.mask_set_id}_upto{args.layer_id}_noembd{args.dont_decay_embd}_parale{args.parallelogram}_{args.model_name}_p{args.p}_base{args.base}_row32_ntask{args.pre_train_n_tasks}_nvar{args.n_var}_dsplit{args.split_data}_dfrac{args.data_pct:.1f}_{args.act_name}_n{args.n_embd}_h{args.n_head}_d{args.n_layer}_lctx{args.block_size}_I{args.seed}_dI{args.data_seed}_{args.optim}_bs{args.bs}_Tf{args.tune_steps}_T{args.steps:d}_Tw{args.warmup_steps:d}_Trshf{args.reshuffle_step}_lr{args.lr:0.2e}_wd{args.wd:.2e}.pth'
-    else:
-        raise ValueError("not implemented")
+    ckpt_path = "./path/to/checkpoint/file.pth"
     
-    ## 2-layer checkpoint
-    # ckpt_path = "../ckpts/heal/noembdFalse_paraleTrue_pltask512_rope_decoder_p29_base29_row32_ntask512_nvar2_dsplitTrue_dfrac60.0_relu_n512_h4_d2_lctx512_I2_dI0_adamw_bs1024_t200000_T200000_Tw10000_lr1.50e-04_wd2.00e+00.pth"
-    
-    ## 6-layer checkpoint
-    ckpt_path = "../ckpts/heal/noembdFalse_paraleTrue_pltask512_rope_decoder_p29_base29_row32_ntask512_nvar2_dsplitTrue_dfrac60.0_relu_n512_h4_d6_lctx512_I2_dI0_adamw_bs1024_t200000_T200000_Tw10000_lr1.50e-04_wd2.00e+00.pth"
-
-    
-    args.n_layer = 2
-
     if args.model_name == 'rope_decoder':
         assert args.s == 0.0
         if args.layer_id > args.n_layer:
@@ -223,8 +205,7 @@ with torch.no_grad():
     logits_lastshot_pre = []
     preds_lastshot_pre = []
 
-    ## set the seed for this loop
-    random.seed(args.seed - 1)
+    random.seed(1)    # so that the sequence of inputs match with the paper
 
     if args.tqdm_bar:
         iterator = tqdm(range(1, args.total_shots+1))
@@ -243,36 +224,12 @@ with torch.no_grad():
         else:
             previous_examples = torch.cat([previous_examples, example], dim=2)
         
-        ## grid for the last shot
-        grid_lastshot = torch.cat( [torch.zeros_like(grid_set_pre)]*2, dim=2 )
-        grid_lastshot[:, :, :args.dim] = example
-        grid_lastshot[:, :, args.dim:] = grid_set_pre
-        
         ## grid for k-shot
         grid = torch.cat( [torch.zeros_like(grid_set_pre)] * (shot+1), dim=2 )
         if shot != 1:
             grid[:, :, : shot * args.dim] = previous_examples
         grid[:, :, (shot-1) * args.dim : shot * args.dim] = example
         grid[:, :, shot * args.dim :] = grid_set_pre
-        
-        ## evaluate last shot
-        acc_lastshot, loss_lastshot, logit_lastshot, pred_lastshot = measure_grid_accloss_new(model, grid_lastshot, args, device, n_measure=args.n_measure)
-        
-        ## reshape evaluation data
-        # acc_lastshot = acc_lastshot.reshape((args.eval_bs, args.p, args.p, args.n_point_per_row))
-        # loss_lastshot = loss_lastshot.reshape((args.eval_bs, args.p, args.p, args.n_point_per_row))
-        # logit_lastshot = logit_lastshot.reshape((args.eval_bs, args.p, args.p, args.n_point_per_row, args.p))
-        # pred_lastshot = pred_lastshot.reshape((args.eval_bs, args.p, args.p, args.n_point_per_row))
-        acc_lastshot = acc_lastshot.reshape((args.eval_bs, args.p, args.p))
-        loss_lastshot = loss_lastshot.reshape((args.eval_bs, args.p, args.p))
-        logit_lastshot = logit_lastshot.reshape((args.eval_bs, args.p, args.p, args.p))
-        pred_lastshot = pred_lastshot.reshape((args.eval_bs, args.p, args.p))
-        
-        ## append evaluation data
-        accs_lastshot_pre.append(acc_lastshot[:, :, :])
-        losses_lastshot_pre.append(loss_lastshot[:, :, :])
-        logits_lastshot_pre.append(logit_lastshot[:, :, :, :])
-        preds_lastshot_pre.append(pred_lastshot[:, :, :])
         
         ## change args.n_point_per_row according to the shot
         args.n_point_per_row = shot+1
@@ -292,9 +249,6 @@ with torch.no_grad():
         logits_pre.append(logit[:, :, :, :])
         preds_pre.append(pred[:, :, :])
         
-        ## change args.n_point_per_row back to 2
-        args.n_point_per_row = 2
-        
         
     ## Eval loop for ood_Ws
         
@@ -305,12 +259,6 @@ with torch.no_grad():
     losses_ood = []
     logits_ood = []
     preds_ood = []
-    accs_lastshot_ood = []
-    losses_lastshot_ood = []
-    logits_lastshot_ood = []
-    preds_lastshot_ood = []
-    
-    random.seed(args.seed)
 
 
     for shot in tqdm(range(1, args.total_shots+1)):
@@ -324,32 +272,12 @@ with torch.no_grad():
         else:
             previous_examples = torch.cat([previous_examples, example], dim=2)
         
-        # grid for the last shot
-        grid_lastshot = torch.cat( [torch.zeros_like(grid_set_ood)]*2, dim=2 )
-        grid_lastshot[:, :, :args.dim] = example
-        grid_lastshot[:, :, args.dim:] = grid_set_ood
-        
-        # grid for k-shot
+        ## grid for k-shot
         grid = torch.cat( [torch.zeros_like(grid_set_ood)] * (shot+1), dim=2 )
         if shot != 1:
             grid[:, :, : shot * args.dim] = previous_examples
         grid[:, :, (shot-1) * args.dim : shot * args.dim] = example
         grid[:, :, shot * args.dim :] = grid_set_ood
-        
-        ## evaluate last shot
-        acc_lastshot, loss_lastshot, logit_lastshot, pred_lastshot = measure_grid_accloss_new(model, grid_lastshot, args, device, n_measure=args.n_measure)
-        
-        ## reshape evaluation data
-        acc_lastshot = acc_lastshot.reshape((args.eval_bs, args.p, args.p))
-        loss_lastshot = loss_lastshot.reshape((args.eval_bs, args.p, args.p))
-        logit_lastshot = logit_lastshot.reshape((args.eval_bs, args.p, args.p, args.p))
-        pred_lastshot = pred_lastshot.reshape((args.eval_bs, args.p, args.p))
-        
-        ## append evaluation data
-        accs_lastshot_ood.append(acc_lastshot[:, :, :])
-        losses_lastshot_ood.append(loss_lastshot[:, :, :])
-        logits_lastshot_ood.append(logit_lastshot[:, :, :, :])
-        preds_lastshot_ood.append(pred_lastshot[:, :, :])
         
         ## change args.n_point_per_row according to the shot
         args.n_point_per_row = shot+1
@@ -368,10 +296,9 @@ with torch.no_grad():
         losses_ood.append(loss[:, :, :])
         logits_ood.append(logit[:, :, :, :])
         preds_ood.append(pred[:, :, :])
-        
-        ## change args.n_point_per_row back to 2
-        args.n_point_per_row = 2
 
+
+## save data
 
 data = {}
 data['pre_Ws'] = pre_Ws
@@ -383,18 +310,10 @@ data['accs_pre'] = accs_pre
 data['losses_pre'] = losses_pre
 data['logits_pre'] = logits_pre
 data['preds_pre'] = preds_pre
-data['accs_lastshot_pre'] = accs_lastshot_pre
-data['losses_lastshot_pre'] = losses_lastshot_pre
-data['logits_lastshot_pre'] = logits_lastshot_pre
-data['preds_lastshot_pre'] = preds_lastshot_pre
 data['accs_ood'] = accs_ood
 data['losses_ood'] = losses_ood
 data['logits_ood'] = logits_ood
 data['preds_ood'] = preds_ood
-data['accs_lastshot_ood'] = accs_lastshot_ood
-data['losses_lastshot_ood'] = losses_lastshot_ood
-data['logits_lastshot_ood'] = logits_lastshot_ood
-data['preds_lastshot_ood'] = preds_lastshot_ood
 
 filename = f"grid_{args.n_layer}layer_{args.total_shots}-shot_set{args.mask_set_id}.pickle"
 with open(args.path_to_results + filename, 'wb') as f:

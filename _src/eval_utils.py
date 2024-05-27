@@ -115,52 +115,6 @@ def get_logits_and_loss(x, y, model, p, ctx):
 
 
 @torch.inference_mode()
-def measure_grid_accloss(model: nn.Module, dataset:torch.Tensor, args, device, n_measure: int = 10, auxiliary = False) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Measure per position accuracy for one batch, modular arithmetic
-    """
-    if 'cuda' in args.device:
-        device_type = 'cuda'
-    elif 'cpu' in args.device:
-        device_type = 'cpu'
-    ctx = nullcontext() if 'mps' in args.device else torch.autocast(device_type=device_type, dtype=args.dtype, enabled=args.mixed_precision)
-    
-    model.eval()
-
-    acc_record = np.zeros((args.eval_bs, dataset.shape[1], args.n_point_per_row), dtype=float)
-    loss_record = np.zeros((args.eval_bs, dataset.shape[1], args.n_point_per_row), dtype=float)
-    logit_record = np.zeros((args.eval_bs, dataset.shape[1], args.n_point_per_row, args.p), dtype=float)
-    pred_record = np.zeros((args.eval_bs, dataset.shape[1], args.n_point_per_row), dtype=float)
-    
-    input = dataset.clone()
-    target = dataset.clone()
-    for i in range(args.n_point_per_row):
-        target[:, :, args.dim * i : args.dim * (i+1) - args.max_digits] = -100
-    
-    for t in range(dataset.shape[1]):
-        x = input[:, t, :-1].contiguous().to(device=device)
-        y = target[:, t, 1:].contiguous().to(device=device)
-        
-        # with ctx:
-        #     logits = model(x)[:, :, :args.p]
-        #     losses = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1), reduction='none')
-        # losses = losses.reshape(logits.size(0), -1).cpu().float().numpy()
-        # pred = logits.argmax(-1).cpu().float().numpy()
-        # logits = logits.cpu().float().numpy()
-        
-        losses, pred, logits = get_logits_and_loss(x, y, model, args.p, ctx)
-        
-        correct_mask = (pred[:, (args.dim-2)::args.dim] == y[:, (args.dim-2)::args.dim])
-        
-        acc_record[:, t, :] = correct_mask.cpu().numpy()
-        loss_record[:, t, :] = losses[:, (args.dim-2)::args.dim].cpu().float().numpy()
-        logit_record[:, t, :, :] = logits[:, (args.dim-2)::args.dim].cpu().float().numpy()
-        pred_record[:, t, :] = pred[:, (args.dim-2)::args.dim].cpu().float().numpy()
-        
-    return acc_record, loss_record, logit_record, pred_record
-
-
-@torch.inference_mode()
 def measure_grid_accloss_new(model: nn.Module, dataset:torch.Tensor, args, device, n_measure: int = 10, auxiliary = False) -> tuple[np.ndarray, np.ndarray]:
     """
     Measure per position accuracy for one batch, modular arithmetic
