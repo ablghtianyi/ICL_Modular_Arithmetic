@@ -40,7 +40,7 @@ LOGFILE="icl_history.log"
 
 # Build the command string
 CMD="torchrun --nnodes=$NNODES --nproc_per_node=$NPROC_PER_NODE --master_port=$MASTER_PORT \
-icl_grokking_balanced_ddp.py --device='cuda' --mixed_precision=True --dtype='bfloat16' --num_workers=8 \
+icl_grokking.py --device='cuda' --mixed_precision=True --dtype='bfloat16' --num_workers=8 \
 --n_tasks_rd=$NTASKS_RD --n_tasks_pl=$NTASKS_PL --parallelogram=True --n_var=$N_VAR --p=$P --base=$P --data_pct=$DATA_PCT --split_data=True \
 --model='rope_decoder' --act_name='relu' --block_size=512 --n_embd=$DIM --n_layer=$DEPTH --n_head=$NHEAD \
 --optim='adamw' --lr=$LR --wd=$WD --dont_decay_embd=False --weight_tying=True --lr_decay='cosine' --clip=0.0 \
