@@ -1,0 +1,14 @@
+numpy
+torch
+torchvision
+torchaudio
+lightning
+rotary_embedding_torch
+timm
+tqdm
+pandas
+seaborn
+matplotlib
+sympy
+schedulefree
+sophia-optimizer
