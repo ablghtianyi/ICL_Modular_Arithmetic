@@ -91,16 +91,16 @@ parser.add_argument("--fake_epochs", default=1000000, type=int, help="fake epoch
 # Saving
 parser.add_argument("--savefig", default=False, type=str2bool, help="Save Fig or not")
 parser.add_argument("--n_measure", default=1, type=int, help="Number of batches for evaluations")
-parser.add_argument("--start_pos", default=3, type=int, help="Attn start pos")
-parser.add_argument("--end_pos", default=4, type=int, help="Attn end pos")
-parser.add_argument("--probe", default=0, type=int, help="Probe used in sequence, from 0-(p-1)**2, (1, 1, f), (1, 2, f), ...")
+parser.add_argument("--end_pos", default=3, type=int, help="Attn end pos")
 parser.add_argument("--task_id", default=0, type=int, help="Task_id, 0-(p-1)**2, (1, 1), (1, 2), ...")
 parser.add_argument("--plot_head_idx", default=0, type=int, help="Which head to plot, not always used")
 parser.add_argument("--plot_mode", default='pca_head', type=str, help="Plotting Mode")
 parser.add_argument("--operate_mode", default='scany', type=str, help="Operate mode for PCA, scanx for (1, y, f), scany for (x, 1, f)")
 
-N = 5 # number of colors to extract from each of the base_cmaps below
-base_cmaps = ['Greys','Purples','Reds','Blues','Oranges','Greens']
+
+# Colormap
+N = 5
+base_cmaps = ['Greys', 'Purples', 'Reds', 'Blues', 'Oranges', 'Greens']
 n_base = len(base_cmaps)
 colors = np.concatenate([plt.get_cmap(name)(np.linspace(0.5, 1.0, N)) for name in base_cmaps])
 custom_cmap = mcolors.ListedColormap(colors)
@@ -200,9 +200,6 @@ def main(args):
         torch.set_float32_matmul_precision('high')
         args.dtype = torch.float32
 
-    # Enable flash attention
-    torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=True, enable_mem_efficient=True)
-
     # Setup seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -278,6 +275,7 @@ def main(args):
         case 'pca_pair_head_print':
             """
             PCA for (x, y, f), where (x, y) pairs feature are concatenated, plot separately for each head.
+            This case also creates attention map for each haed.
             """
             Ws = list(itertools.product(range(1, args.p), repeat=args.n_var))
             xs = np.asarray(list(itertools.product(range(0, args.p), repeat=len(Ws[0]))))
@@ -329,10 +327,7 @@ def main(args):
                     attn_weight, head_out = scaled_dot_product_attention(q, k, value=v)
                     head_out = head_out.transpose(1, 2).contiguous() 
                 
-                
-                    # head_idx = 0
                     head_idx = args.plot_head_idx
-                    # xmin, xmax, ymin, ymax = 100, -100, 100, -100
                     ov_out = F.linear(head_out[:, :, head_idx, :], model.transformer.h[layer_idx].attn.o.weight.data[:, head_idx*head_size : (head_idx + 1)*head_size].cpu(), bias = None)
                     ov_out_for_plot = ov_out[inv_perm, args.dim * end_pair_id:args.dim * end_pair_id + 2 , :].reshape(len(inv_perm), -1) # All pairs with shot end_pair, and pos shift for given head. (p^2, n_embd)
                     top_directions = pca(ov_out_for_plot.T, n_top_direction=2) # (2, n_embd)
@@ -346,9 +341,6 @@ def main(args):
                         ax.annotate(f'({numbers[0]}, {numbers[1]})', results, color=custom_cmap.colors[numbers[0]], fontsize=4, fontweight='bold')
                         ax_log.annotate(f'({find_log(27, numbers[0], args.p)}, {find_log(27, numbers[1], args.p)})', results, color=custom_cmap.colors[find_log(27, numbers[0], args.p)], fontsize=4, fontweight='bold')
                         
-                    # ax.set_title(f'Head: {head_idx + 1}')
-                    # ax_log.set_title(f'Head: {head_idx + 1}')
-                    
                     ax.set_ylabel("2nd principle component", fontsize=20)
                     ax.set_xlabel("1st principle component", fontsize=20)
                     ax_log.set_ylabel("2nd principle component", fontsize=20)
@@ -440,7 +432,7 @@ def main(args):
             logits, (qkv_list, input_list, output_list) = model.record(x)
             head_size = args.n_embd // args.n_head
 
-            # operate_mod = 'scany' # or 'scany'
+            # operate_mod = 'scanx' or 'scany'
             for layer_idx, (q, k, v) in enumerate(qkv_list):
                 if layer_idx == args.plot_layer_idx:
                     fig, ax = plt.subplots(1, 1, figsize=(6, 6), constrained_layout=True)

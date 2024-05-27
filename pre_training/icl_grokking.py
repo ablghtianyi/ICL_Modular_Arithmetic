@@ -210,9 +210,6 @@ def main(args):
         torch.set_float32_matmul_precision('high')
         args.dtype = torch.float32
 
-    # Enable flash attention
-    torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=True, enable_mem_efficient=True)
-
     # Setup seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -289,11 +286,12 @@ def main(args):
     ckpt_prefix = f"../ckpts/noembd{args.dont_decay_embd}_parale{args.parallelogram}_pltask{args.n_tasks_pl}"
     data_prefix = f"../data/noembd{args.dont_decay_embd}_parale{args.parallelogram}_pltask{args.n_tasks_pl}"
 
-    data = train_tf_icl(compiled_ddp_model, model,
-                        train_iter, val_iter, ood_train_iter, ood_val_iter, train_sampler,
-                        scaler, args, device,
-                        ckpt_steps=ckpt_steps, ckpt_prefix=ckpt_prefix, data_prefix=data_prefix
-                        )
+    with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+        data = train_tf_icl(compiled_ddp_model, model,
+                            train_iter, val_iter, ood_train_iter, ood_val_iter, train_sampler,
+                            scaler, args, device,
+                            ckpt_steps=ckpt_steps, ckpt_prefix=ckpt_prefix, data_prefix=data_prefix
+                            )
 
     return
 
