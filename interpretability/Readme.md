@@ -1,9 +1,8 @@
-# A Short Description of Each Script.
+## How to Use
 
-- Get checkpoint saved from pre_training process
+Generate Checkpoints by running scripts in ```../pre_training```
 
-- Use ```play_with_repeated_sequences.py``` to generate data
-
+Then:
+- Use ```play_with_repeated_sequences.py``` to generate interpretability data
 - Plot a simple version of Fig 5 use ```plot_grid.py```
-
-- ```pca_analysis``` for PCA
+- ```pca_analysis``` for PCA results and attention map
