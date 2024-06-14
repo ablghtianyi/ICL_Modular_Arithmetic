@@ -1,6 +1,6 @@
 # Learning to grok: Emergence of in-context learning and skill composition in modular arithmetic tasks
 
-## This is an official implementation of the paper [arXiv:2406.02550](https:xxx).
+## This is an official implementation of the paper [arXiv:2406.02550](https://arxiv.org/abs/2406.02550).
 
 ![Main Result](assets/fig1.png)
 
