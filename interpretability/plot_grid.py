@@ -204,6 +204,7 @@ def main():
 
     nrows = 4
     
+    ## plotting loop
     for i in tqdm(range(accs_pre[0].shape[0])):
 
         plt.figure(figsize=(args.total_shots*5, nrows*5))
@@ -257,7 +258,7 @@ def main():
         plt.close()
 
 
-    # ood tasks
+    ## ood tasks
     
     ood_Ws = data['ood_Ws']
     grid_set_ood = data['grid_set_ood']
@@ -280,6 +281,7 @@ def main():
     args.max_digits = 2 * args.max_digits if args.pos_hint is True else args.max_digits
     args.dim = args.max_digits * (len(ood_Ws[0]) + 1)
 
+    ##  plotting loop
     for i in tqdm(range(accs_ood[0].shape[0])):
 
         plt.figure(figsize=(args.total_shots*5, nrows*5))
