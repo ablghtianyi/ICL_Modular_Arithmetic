@@ -15,7 +15,7 @@ import pickle
 
 from _src.datasets import prepare_data_grid
 from _src.models import RoPETransformer, RoPEFlashAttention
-from _src.eval_utils import measure_grid_accloss_taskbatch
+from _src.eval_utils import measure_grid_accloss_examplebatch
 from _src.task_utils import str2bool, generate_all_unique_sublists, generate_all_unique_sublists_givenWs, parallelogram_tasks_with_shared_components, get_ood_lists
 
 
@@ -192,8 +192,9 @@ with torch.no_grad():
 
     ## Eval loop for pre_Ws
 
-    args.eval_bs_pre = len(pre_Ws)
-    args.eval_bs = args.eval_bs_pre    
+    # args.eval_bs = args.p * args.p
+    # args.eval_bs_pre = grid_set_pre.shape[1]
+    # assert args.eval_bs == args.eval_bs_pre   
 
     ids = []
     accs_pre = []
@@ -235,13 +236,13 @@ with torch.no_grad():
         args.n_point_per_row = shot+1
         
         ## evaluate k-shot
-        acc, loss, logit, pred = measure_grid_accloss_taskbatch(model, grid, args, device, n_measure=args.n_measure)
+        acc, loss, logit, pred = measure_grid_accloss_examplebatch(model, grid, args, device, n_measure=args.n_measure)
         
         ## reshape evaluation data
-        acc = acc.reshape((args.eval_bs, args.p, args.p))
-        loss = loss.reshape((args.eval_bs, args.p, args.p))
-        logit = logit.reshape((args.eval_bs, args.p, args.p, args.p))
-        pred = pred.reshape((args.eval_bs, args.p, args.p))
+        acc = acc.reshape((len(pre_Ws), args.p, args.p))
+        loss = loss.reshape((len(pre_Ws), args.p, args.p))
+        logit = logit.reshape((len(pre_Ws), args.p, args.p, args.p))
+        pred = pred.reshape((len(pre_Ws), args.p, args.p))
         
         ## append evaluation data
         accs_pre.append(acc[:, :, :])
@@ -252,8 +253,8 @@ with torch.no_grad():
         
     ## Eval loop for ood_Ws
         
-    args.eval_bs_ood = len(ood_Ws)
-    args.eval_bs = args.eval_bs_ood
+    # args.eval_bs_ood = len(ood_Ws)
+    # args.eval_bs = args.eval_bs_ood
 
     accs_ood = []
     losses_ood = []
@@ -283,13 +284,13 @@ with torch.no_grad():
         args.n_point_per_row = shot+1
         
         ## evaluate k-shot
-        acc, loss, logit, pred = measure_grid_accloss_taskbatch(model, grid, args, device, n_measure=args.n_measure)
+        acc, loss, logit, pred = measure_grid_accloss_examplebatch(model, grid, args, device, n_measure=args.n_measure)
         
         ## reshape evaluation data
-        acc = acc.reshape((args.eval_bs, args.p, args.p))
-        loss = loss.reshape((args.eval_bs, args.p, args.p))
-        logit = logit.reshape((args.eval_bs, args.p, args.p, args.p))
-        pred = pred.reshape((args.eval_bs, args.p, args.p))
+        acc = acc.reshape((len(ood_Ws), args.p, args.p))
+        loss = loss.reshape((len(ood_Ws), args.p, args.p))
+        logit = logit.reshape((len(ood_Ws), args.p, args.p, args.p))
+        pred = pred.reshape((len(ood_Ws), args.p, args.p))
         
         ## append evaluation data
         accs_ood.append(acc[:, :, :])
