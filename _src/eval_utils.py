@@ -115,7 +115,7 @@ def get_logits_and_loss(x, y, model, p, ctx):
 
 
 @torch.inference_mode()
-def measure_grid_accloss_new(model: nn.Module, dataset:torch.Tensor, args, device, n_measure: int = 10, auxiliary = False) -> tuple[np.ndarray, np.ndarray]:
+def measure_grid_accloss_taskbatch(model: nn.Module, dataset:torch.Tensor, args, device, n_measure: int = 10, auxiliary = False) -> tuple[np.ndarray, np.ndarray]:
     """
     Measure per position accuracy for one batch, modular arithmetic
     """
@@ -127,10 +127,10 @@ def measure_grid_accloss_new(model: nn.Module, dataset:torch.Tensor, args, devic
     
     model.eval()
     
-    acc_record = np.zeros((args.eval_bs, dataset.shape[1]), dtype=float)
-    loss_record = np.zeros((args.eval_bs, dataset.shape[1]), dtype=float)
-    logit_record = np.zeros((args.eval_bs, dataset.shape[1], args.p), dtype=float)
-    pred_record = np.zeros((args.eval_bs, dataset.shape[1]), dtype=float)
+    acc_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
+    loss_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
+    logit_record = np.zeros((dataset.shape[0], dataset.shape[1], args.p), dtype=float)
+    pred_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
 
     input = dataset.clone()
     target = dataset.clone()
@@ -150,6 +150,45 @@ def measure_grid_accloss_new(model: nn.Module, dataset:torch.Tensor, args, devic
         loss_record[:, t] = losses[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
         logit_record[:, t, :] = logits[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
         pred_record[:, t] = pred[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
+        
+    return acc_record, loss_record, logit_record, pred_record
+
+@torch.inference_mode()
+def measure_grid_accloss_examplebatch(model: nn.Module, dataset:torch.Tensor, args, device, n_measure: int = 10, auxiliary = False) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Measure per position accuracy for one batch, modular arithmetic
+    """
+    if 'cuda' in args.device:
+        device_type = 'cuda'
+    elif 'cpu' in args.device:
+        device_type = 'cpu'
+    ctx = nullcontext() if 'mps' in args.device else torch.autocast(device_type=device_type, dtype=args.dtype, enabled=args.mixed_precision)
+    
+    model.eval()
+    
+    acc_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
+    loss_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
+    logit_record = np.zeros((dataset.shape[0], dataset.shape[1], args.p), dtype=float)
+    pred_record = np.zeros((dataset.shape[0], dataset.shape[1]), dtype=float)
+
+    input = dataset.clone()
+    target = dataset.clone()
+    for i in range(args.n_point_per_row):
+        target[:, :, args.dim * i : args.dim * (i+1) - args.max_digits] = -100
+    
+    for t in range(dataset.shape[0]):
+        x = input[t, :, :-1].contiguous().to(device=device)
+        y = target[t, :, 1:].contiguous().to(device=device)
+        
+        losses, pred, logits = get_logits_and_loss(x, y, model, args.p, ctx)
+        
+        correct_mask = (pred[:, (args.dim-2)::args.dim] == y[:, (args.dim-2)::args.dim])
+        # raise Exception(pred[:, (args.dim-2)::args.dim], y[:, (args.dim-2)::args.dim], correct_mask)
+        
+        acc_record[t, :] = correct_mask[:, -1].cpu().numpy()
+        loss_record[t, :] = losses[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
+        logit_record[t, :, :] = logits[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
+        pred_record[t, :] = pred[:, (args.dim-2)::args.dim][:, -1].cpu().float().numpy()
         
     return acc_record, loss_record, logit_record, pred_record
 
