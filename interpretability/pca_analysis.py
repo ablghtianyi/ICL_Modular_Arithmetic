@@ -91,7 +91,7 @@ parser.add_argument("--fake_epochs", default=1000000, type=int, help="fake epoch
 # Saving
 parser.add_argument("--savefig", default=False, type=str2bool, help="Save Fig or not")
 parser.add_argument("--n_measure", default=1, type=int, help="Number of batches for evaluations")
-parser.add_argument("--end_pos", default=3, type=int, help="Attn end pos")
+parser.add_argument("--end_pos", default=3, type=int, help="The position of the token along the sequence. Only (end_pos // 3) matters.")
 parser.add_argument("--task_id", default=0, type=int, help="Task_id, 0-(p-1)**2, (1, 1), (1, 2), ...")
 parser.add_argument("--plot_layer_idx", default=0, type=int, help="Which head to plot, not always used")
 parser.add_argument("--plot_head_idx", default=0, type=int, help="Which head to plot, not always used")
