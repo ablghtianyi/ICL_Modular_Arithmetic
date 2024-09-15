@@ -91,11 +91,11 @@ parser.add_argument("--fake_epochs", default=1000000, type=int, help="fake epoch
 # Saving
 parser.add_argument("--savefig", default=False, type=str2bool, help="Save Fig or not")
 parser.add_argument("--n_measure", default=1, type=int, help="Number of batches for evaluations")
-parser.add_argument("--end_pos", default=3, type=int, help="Attn end pos")
+parser.add_argument("--end_pos", default=3, type=int, help="The position of the token along the sequence. Only (end_pos // 3) matters.")
 parser.add_argument("--task_id", default=0, type=int, help="Task_id, 0-(p-1)**2, (1, 1), (1, 2), ...")
+parser.add_argument("--plot_layer_idx", default=0, type=int, help="Which head to plot, not always used")
 parser.add_argument("--plot_head_idx", default=0, type=int, help="Which head to plot, not always used")
 parser.add_argument("--plot_mode", default='pca_head', type=str, help="Plotting Mode")
-parser.add_argument("--operate_mode", default='scany', type=str, help="Operate mode for PCA, scanx for (1, y, f), scany for (x, 1, f)")
 
 
 # Colormap
@@ -165,7 +165,7 @@ def find_log(base, target, p):
     for x in range(1, p):
         if pow(base, x, p) == target:
             return x
-    return math.nan
+    return 0
 
 
 # Main funtion
@@ -316,7 +316,6 @@ def main(args):
             logits, (qkv_list, input_list, output_list) = model.record(x)
             head_size = args.n_embd // args.n_head
 
-            # operate_mod = 'scany' # or 'scany'
             for layer_idx, (q, k, v) in enumerate(qkv_list):
                 if layer_idx == args.plot_layer_idx:
                     fig, ax = plt.subplots(1, 1, figsize=(6, 6), constrained_layout=True)
@@ -335,7 +334,6 @@ def main(args):
                         results = (output_v @ top_directions[0],  output_v @ top_directions[1])
                         ax.scatter(results[0], results[1], alpha=0)
                         ax_log.scatter(results[0], results[1], alpha=0)
-                        ax_exp.scatter(results[0], results[1], alpha=0)
                         
                         numbers = x[inv_perm, args.dim*end_pair_id:args.dim*(end_pair_id + 1)][batch_idx].cpu().numpy()
                         ax.annotate(f'({numbers[0]}, {numbers[1]})', results, color=custom_cmap.colors[numbers[0]], fontsize=4, fontweight='bold')
@@ -432,7 +430,6 @@ def main(args):
             logits, (qkv_list, input_list, output_list) = model.record(x)
             head_size = args.n_embd // args.n_head
 
-            # operate_mod = 'scanx' or 'scany'
             for layer_idx, (q, k, v) in enumerate(qkv_list):
                 if layer_idx == args.plot_layer_idx:
                     fig, ax = plt.subplots(1, 1, figsize=(6, 6), constrained_layout=True)
@@ -533,7 +530,6 @@ def main(args):
             logits, (qkv_list, input_list, output_list) = model.record(x)
             head_size = args.n_embd // args.n_head
 
-            # operate_mod = 'scany' # or 'scany'
             for layer_idx, (q, k, v) in enumerate(qkv_list):
                 if layer_idx == args.plot_layer_idx:
                     fig, ax = plt.subplots(1, 1, figsize=(6, 6), constrained_layout=True)
@@ -610,5 +606,5 @@ def main(args):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    with torch.no_grad():
+    with torch.inference_mode():
         main(args)
