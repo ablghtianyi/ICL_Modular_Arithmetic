@@ -30,20 +30,16 @@ WD=2.0
 FREEZE_SET_ID=0
 MASK_SET_ID=0
 
-PLOT_MODE=$2 # select the analysis one wants to do
-END_POS=$3 # Last token position to be included in the analysis
-TASK_ID=$4 # 0 - (p-1)^2
-PLOT_HEAD_IDX=$5
-PLOT_LAYER_IDX=$6
+END_POS=$2 # Last token position to be included in the analysis
+TASK_ID=$3 # 0 - (p-1)^2
 
 # Build the command string
-CMD="python pca_analysis.py --device='mps' --mixed_precision=False --dtype='float32' --num_workers=0 \
+CMD="python attn_map.py --device='mps' --mixed_precision=False --dtype='float32' --num_workers=0 \
 --n_tasks_rd=$NTASKS_RD --n_tasks_pl=$NTASKS_PL --parallelogram=True --n_var=$N_VAR --p=$P --base=$P --data_pct=$DATA_PCT --split_data=True \
 --model='rope_decoder' --act_name='relu' --block_size=512 --n_embd=$DIM --n_layer=$DEPTH --n_head=$NHEAD \
 --optim='adamw' --lr=$LR --wd=$WD --dont_decay_embd=False --weight_tying=True --lr_decay='cosine' --clip=0.0 \
 --steps=$STEPS --warmup_steps=$WARM_STEPS --n_point_per_row=32 \
---bs=$BS --eval_bs=$EVAL_BS --seed=$SEED --data_seed=0 --reshuffle_step=1 --n_measure=1 --plot_mode=$PLOT_MODE \
---end_pos=$END_POS --task_id=$TASK_ID --plot_head_idx=$PLOT_HEAD_IDX --plot_layer_idx=$PLOT_LAYER_IDX \
---savefig=False"
+--bs=$BS --eval_bs=$EVAL_BS --seed=$SEED --data_seed=0 --reshuffle_step=1 --n_measure=1 \
+--end_pos=$END_POS --task_id=$TASK_ID --savefig=True"
 
 eval $CMD
